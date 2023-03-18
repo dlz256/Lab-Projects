@@ -1,0 +1,457 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/dlz256/Lab-Projects/blob/main/LU%20matrix%20Decomposition\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "heated-sword",
+      "metadata": {
+        "id": "heated-sword"
+      },
+      "source": [
+        "<center>\n",
+        "\n",
+        "## ENSE 350 – Math Programming for Software Engineers - Laboratory\n",
+        "\n",
+        "# Lab 4: L U Decomposition\n",
+        "\n",
+        "### University of Regina\n",
+        "### Faculty of Engineering and Applied Science - Software Systems Engineering\n",
+        "### Lab Instructor: [Adam Tilson](mailto:Adam.Tilson@uregina.ca)\n",
+        "\n",
+        "</center>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "lovely-error",
+      "metadata": {
+        "id": "lovely-error"
+      },
+      "source": [
+        "### Your Name: Dillan Zurowski\n",
+        "### Student ID: 200431334"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "desirable-breed",
+      "metadata": {
+        "id": "desirable-breed"
+      },
+      "source": [
+        "### Objective:\n",
+        "\n",
+        "In this lab we will implement LU Decomposition, a method for factorizing a matrix into a Lower triangular and Upper triangular portion, which may be multiplied together to reconstruct the original matrix. These matrices are computed using Gaussian elimination. LU Decompositions are vital to computers performing matrix operations such as solving systems of linear equations, inverting matrices and computing the determinant."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "later-archives",
+      "metadata": {
+        "id": "later-archives"
+      },
+      "source": [
+        "## Part 1: Matrix Class\n",
+        "\n",
+        "Complete the implementation of the following class, which represents a matrix. This class should work for a square two dimensional matrix of any size, i.e. the number of rows match the number of columns.\n",
+        "\n",
+        "The class should have the following members:\n",
+        "- `self.matrix` - A 2D python list which represents the original 2D matrix provided to the constructor\n",
+        "- `self.upper` - A 2D python list which contains the Upper matrix during and after decomposition\n",
+        "- `self.lower` - A 2D python list which contains the Lower matrix during and after decomposition\n",
+        "- `self.dimensions` - Since the matrix is square, this is the number of rows in the matrix, as well as the number of columns. \n",
+        "\n",
+        "\n",
+        "Implement the following functions:\n",
+        "\n",
+        "`__init__(self)`: creates a matrix class from a 2D python array. Assume dimensions match. Given.\n",
+        "\n",
+        "`decompose(self)`: decompose the matrix into an upper triangular and lower triangular portion, storing these as `self.lower` and `self.upper`. We will not account for the special case where there is a leading zero in a column.\n",
+        "\n",
+        "`solve`: given a solution vector, $\\vec{b}$ , find the correct values of x using the upper and lower matrices. The entire process is defined by the derivation:\n",
+        "$$ \\boldsymbol{A}\\vec{x} = \\vec{b} $$\n",
+        "$$ \\text{let }\\boldsymbol{A} = \\boldsymbol{LU}$$\n",
+        "$$ \\boldsymbol{LU}\\vec{x} = \\vec{b}$$\n",
+        "$$ \\text{let }\\boldsymbol{U}\\vec{x} = \\vec{y}$$\n",
+        "$$ \\boldsymbol{L}\\vec{y} = \\vec{b}$$\n",
+        "\n",
+        "\n",
+        "`__get_y__`: a helper function for solve, which computes y according to the step:\n",
+        "$$ \\boldsymbol{L}\\vec{y} = \\vec{b}$$\n",
+        "That is, this function performs back-substitution. You should use this in `solve`!\n",
+        "    \n",
+        "`__get_x__`: a helper function for solve, which computes x according to the step:\n",
+        "$$ \\boldsymbol{U}\\vec{x} = \\vec{y}$$\n",
+        "You should use this in `solve`!\n",
+        "\n",
+        "`get_determinant`: return the determinant of the matrix"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 119,
+      "id": "inclusive-burning",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "inclusive-burning",
+        "outputId": "f10eb5a3-24fc-41cd-e033-09451567e967"
+      },
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "TestResults(failed=0, attempted=8)"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 119
+        }
+      ],
+      "source": [
+        "# LU Decomposition\n",
+        "# [A] = [L][U]\n",
+        "# Some good resources:\n",
+        "# https://www.youtube.com/watch?v=14NX5HJxBNY\n",
+        "# http://math.oit.edu/~watermang/math_341/341_ch7/F13_341_book_sec_7-2.pdf\n",
+        "import copy\n",
+        "\n",
+        "class Matrix:\n",
+        "    '''\n",
+        "    This function models a Matrix, i.e. a 2D list of numbers.\n",
+        "    >>> matrix = Matrix([[ 7, -2,  1],\\\n",
+        "                         [14, -7, -3],\\\n",
+        "                         [-7, 11, 18]])\n",
+        "                         \n",
+        "    >>> matrix.print_matrix()\n",
+        "    Matrix:  Original Matrix\n",
+        "    <BLANKLINE>\n",
+        "    rows:    3\n",
+        "    columns: 3\n",
+        "    <BLANKLINE>\n",
+        "        0   1   2 \n",
+        "    0[  7, -2,  1]\n",
+        "    1[ 14, -7, -3]\n",
+        "    2[ -7, 11, 18]\n",
+        "    \n",
+        "    >>> matrix.print_upper()\n",
+        "    Matrix:  Upper Triangular\n",
+        "    <BLANKLINE>\n",
+        "    rows:    3\n",
+        "    columns: 3\n",
+        "    <BLANKLINE>\n",
+        "          0     1     2 \n",
+        "    0[    7,   -2,    1]\n",
+        "    1[  0.0, -3.0, -5.0]\n",
+        "    2[  0.0,  0.0,  4.0]\n",
+        "\n",
+        "    >>> matrix.print_lower()\n",
+        "    Matrix:  Lower Triangular\n",
+        "    <BLANKLINE>\n",
+        "    rows:    3\n",
+        "    columns: 3\n",
+        "    <BLANKLINE>\n",
+        "          0     1     2 \n",
+        "    0[    1,    0,    0]\n",
+        "    1[  2.0,    1,    0]\n",
+        "    2[ -1.0, -3.0,    1]\n",
+        "    \n",
+        "    >>> matrix.__get_y__([12, 17, 5])\n",
+        "    [12, -7.0, -4.0]\n",
+        "    \n",
+        "    >>> matrix.__get_x__([12, -7, -4])\n",
+        "    [3.0, 4.0, -1.0]\n",
+        "    \n",
+        "    >>> matrix.solve([12, 17, 5])\n",
+        "    [3.0, 4.0, -1.0]\n",
+        "    \n",
+        "    >>> matrix.get_determinant()\n",
+        "    -84.0\n",
+        "    '''\n",
+        "\n",
+        "    def __init__ (self, matrix):\n",
+        "        self.matrix = matrix\n",
+        "        self.dimensions = len(matrix)\n",
+        "        self.decompose()\n",
+        "\n",
+        "    def decompose (self):\n",
+        "        '''Decomposes the matrix into upper and lower portions. \n",
+        "        Use Naive Gaussian Elimination\n",
+        "        '''\n",
+        "        # Your code here. \n",
+        "        # Save your matrices as self.lower and self.upper\n",
+        "        # Hint: Make 2 deep copies of your original matrix to self.lower \n",
+        "        # and self.upper, and modify these during decomposition!\n",
+        "        self.lower = copy.deepcopy(self.matrix)\n",
+        "        self.upper = copy.deepcopy(self.matrix)\n",
+        "\n",
+        "        arr = self.matrix\n",
+        "\n",
+        "        for row in range(len(arr)):\n",
+        "          for col in range (len(arr[row])):\n",
+        "              if row < col:\n",
+        "                  self.lower[row][col]=0\n",
+        "        for row in range(len(arr)):\n",
+        "          for col in range (len(arr[row])):\n",
+        "              if row == col:\n",
+        "                  self.lower[row][col]=1\n",
+        "\n",
+        "        for col in range(self.dimensions):\n",
+        "          for row in range(len(arr)):\n",
+        "            if row > col:\n",
+        "              target = self.upper[row][col]/self.upper[col][col]  #target = current/middle el of column\n",
+        "              self.lower[row][col] = target\n",
+        "\n",
+        "              for index in range(len(self.upper[row])):  #change row\n",
+        "                self.upper[row][index] = self.upper[row][index] - (target*self.upper[col][index])\n",
+        "                 \n",
+        "        pass\n",
+        "\n",
+        "    def __get_y__ (self, b):\n",
+        "        # Your code here!\n",
+        "        # Hint: Back substitution using L!\n",
+        "        y = copy.deepcopy(b)\n",
+        "   \n",
+        "        for row in range(len(self.lower)):\n",
+        "            sum1=[]\n",
+        "            for col in range(len(self.lower[row])):\n",
+        "              if row != col:\n",
+        "                num=self.lower[row][col]*y[col]\n",
+        "                sum1.append(num)\n",
+        "            finalSum = sum(sum1)\n",
+        "            y[row] =  b[row] - finalSum\n",
+        "        return y\n",
+        "        pass\n",
+        "        \n",
+        "    def __get_x__ (self, y):\n",
+        "        # Your code here!\n",
+        "        # Hint: Back substitution using U!\n",
+        "        x = copy.deepcopy(y)\n",
+        "   \n",
+        "        for row in reversed(range(len(self.upper))):\n",
+        "            sum1=[]\n",
+        "            for col in range(len(self.upper[row])):\n",
+        "              if row != col:\n",
+        "                num=self.upper[row][col]*x[col]\n",
+        "                sum1.append(num)\n",
+        "            finalSum = sum(sum1)            \n",
+        "            x[row] =  (y[row] - finalSum)/self.upper[row][row]           \n",
+        "        return x\n",
+        "        pass\n",
+        "        \n",
+        "    def solve (self, b):\n",
+        "        '''Assuming your matrix represents a system of linear equations, solve\n",
+        "        this system using your lower and upper triangular matrices for a \n",
+        "        right-hand-side vector, b'''\n",
+        "        y = self.__get_y__(b)\n",
+        "        x = self.__get_x__(y)\n",
+        "        return x\n",
+        "\n",
+        "    def get_determinant (self):\n",
+        "        # Your code here!\n",
+        "        det = 1\n",
+        "        for row in range(len(self.upper)):\n",
+        "          for col in range (len(self.upper[row])):\n",
+        "              if row == col:\n",
+        "                  det = det * self.upper[row][col]\n",
+        "        return det\n",
+        "        pass\n",
+        "\n",
+        "    ## The following code is used to print the matrix. You may wish to make use\n",
+        "    ## of these functions to help when debugging!\n",
+        "    ## You do not need to understand this code.\n",
+        "    ## If you change it, test cases will break!\n",
+        "\n",
+        "    def print_matrix (self):\n",
+        "        Matrix.__print_helper__(self.matrix, \"Original Matrix\")\n",
+        "        \n",
+        "    def print_upper (self):\n",
+        "        Matrix.__print_helper__(self.upper, \"Upper Triangular\")\n",
+        "    \n",
+        "    def print_lower (self):\n",
+        "        Matrix.__print_helper__(self.lower, \"Lower Triangular\")\n",
+        "    \n",
+        "    def __print_helper__ (matrix, name):\n",
+        "        # prints a formatted matrix and dimensions\n",
+        "        \n",
+        "        print (\"Matrix: \", name)\n",
+        "        print ()\n",
+        "        print (\"rows:   \", len(matrix))\n",
+        "        print (\"columns:\", len(matrix[0]))\n",
+        "        print ()\n",
+        "        \n",
+        "        # compute spacing variables\n",
+        "        max_width = 0\n",
+        "        for i in matrix:\n",
+        "            for j in i:\n",
+        "                len_number_string = len(f'{j}')\n",
+        "                if len_number_string > max_width:\n",
+        "                    max_width = len_number_string              \n",
+        "        \n",
+        "        first_row_padding = len(f'{len(matrix)}')\n",
+        "        max_width += 2\n",
+        "        \n",
+        "        # column indices:\n",
+        "        print (f'{\" \": >{first_row_padding+1}}', end=\"\")\n",
+        "        for j in range (len(matrix[0])):\n",
+        "            print (f'{str(j) + \" \": >{max_width}}', end=\"\")  \n",
+        "        print()\n",
+        "        \n",
+        "        # print row by row\n",
+        "        for i in range(len(matrix)):\n",
+        "            first = True\n",
+        "            \n",
+        "            # row number...\n",
+        "            print (f'{str(i):>{first_row_padding}}', end=\"\")  \n",
+        "            \n",
+        "            for j in matrix[i][:-1]:\n",
+        "                if first:\n",
+        "                    first = False\n",
+        "                    print (\"[\" + f'{str(j) + \",\":>{max_width}}', end=\"\") \n",
+        "                else:\n",
+        "                    print (f'{str(j) + \",\":>{max_width}}' , end=\"\")\n",
+        "            # last row\n",
+        "            print (f'{str (matrix[i][-1])+\"]\":>{max_width}}')\n",
+        "\n",
+        "import doctest\n",
+        "doctest.testmod()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "wicked-argentina",
+      "metadata": {
+        "id": "wicked-argentina"
+      },
+      "source": [
+        "## Part 2: Application\n",
+        "\n",
+        "Using your code from part 1, solve the following system of linear equations.\n",
+        "\n",
+        "$$ x_1 + 2x_2 + x_3 - x_4 = 5 $$\n",
+        "$$ 3x_1 + 2x_2 + 4x_3 + 4x_4 = 16 $$\n",
+        "$$ 4x_1 + 4x_2 + 3x_3 + 4x_4 = 22 $$\n",
+        "$$ 2x_1 + x_3 +5x_4 = 15 $$\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 122,
+      "id": "antique-condition",
+      "metadata": {
+        "id": "antique-condition",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "bde27cf3-30cc-47c1-9274-e56f00295c55"
+      },
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[16.0, -6.0, -2.0, -3.0]"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 122
+        }
+      ],
+      "source": [
+        "# Your code here!\n",
+        "matrix = Matrix([[1, 2, 1, -1],\\\n",
+        "                 [3, 2, 4, 4],\\\n",
+        "                 [4, 4, 3, 4],\\\n",
+        "                  [2, 0, 1, 5]])\n",
+        "b = [5,16,22,15]\n",
+        "matrix.solve(b)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "id": "3f035370",
+      "metadata": {
+        "id": "3f035370"
+      },
+      "source": [
+        "Solve the same system again, this time using the following right-hand-side vector. Do not decompose the matrix again!\n",
+        "$$ \\vec{b} = \\begin{bmatrix}\n",
+        "           23 \\\\\n",
+        "           30 \\\\\n",
+        "           11 \\\\\n",
+        "           5 \n",
+        "         \\end{bmatrix} $$"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 124,
+      "id": "f78ccb23",
+      "metadata": {
+        "id": "f78ccb23",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "eea99a00-9713-44ed-9d08-fbe0c0a9e1a7"
+      },
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "[102.0, -60.0, 1.0, -40.0]"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 124
+        }
+      ],
+      "source": [
+        "# Your code here!\n",
+        "b = [23, 30, 11, 5]\n",
+        "matrix.solve(b)"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3 (ipykernel)",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.9.13"
+    },
+    "vscode": {
+      "interpreter": {
+        "hash": "8100bb27ef6f27bb6b63ba202e13f32f0dffed430e6a4d162d3986e448f218b2"
+      }
+    },
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
